@@ -1,0 +1,77 @@
+# 首批通用工程规则（从规范 §7.2–§7.3 拆出）
+# 依据：实施计划 P0-4；完整规则 Schema（正反例/豁免/审计字段）在 P3-1 定稿，本文件为初版条目
+# check.type: auto（可执行检查命令/工具）| manual（显式标记"人工/AI 审查项"，不得伪装成机器强制）
+schema_version: 1
+
+rules:
+  - id: STD-001
+    name: 命名表达业务含义，职责单一
+    scope: code
+    severity: MINOR
+    check: { type: auto, method: "ruff lint（命名与复杂度规则）＋ AI 审查复核" }
+
+  - id: STD-002
+    name: 外部输入必须验证（结构、类型、范围、边界）
+    scope: code
+    severity: CRITICAL
+    check: { type: manual, method: "AI/人工审查项；辅助：测试覆盖异常路径" }
+
+  - id: STD-003
+    name: 结构化错误处理，不吞异常、不用空捕获掩盖失败
+    scope: code
+    severity: MAJOR
+    check: { type: auto, method: "ruff（E722/B 规则族）" }
+
+  - id: STD-004
+    name: 配置、密钥、环境差异不得硬编码
+    scope: code
+    severity: CRITICAL
+    check: { type: manual, method: "AI/人工审查项；Phase 4 起补静态扫描（policies.yaml secrets 节）" }
+
+  - id: STD-005
+    name: 日志可定位问题但不记录敏感信息（密钥/个人数据）
+    scope: code
+    severity: CRITICAL
+    check: { type: manual, method: "AI/人工审查项＋P1-5 审计脱敏过滤器兜底" }
+
+  - id: STD-006
+    name: 资源（连接/文件/锁）正确释放
+    scope: code
+    severity: MAJOR
+    check: { type: auto, method: "ruff（SIM/RET 族）＋ AI 审查复核" }
+
+  - id: STD-007
+    name: 禁止循环依赖与隐式全局状态
+    scope: architecture
+    severity: MAJOR
+    check: { type: auto, method: "自定义验证器（P1-3 随 DAG 模块实现）" }
+
+  - id: STD-008
+    name: 公共模块有使用说明、接口约定和示例；改动同步更新测试与文档
+    scope: code
+    severity: MINOR
+    check: { type: manual, method: "AI/人工审查项" }
+
+  - id: STD-009
+    name: 不得删除断言、跳过关键测试或伪造结果；不得未经授权修改无关代码
+    scope: process
+    severity: BLOCKER
+    check: { type: auto, method: "diff 审查（对照 allowed_paths 与测试文件变更）＋ CI 强制" }
+
+  - id: STD-010
+    name: 依赖来自可信来源、版本可追踪、项目可重复构建
+    scope: dependencies
+    severity: MAJOR
+    check: { type: auto, method: "依赖锁定文件存在性校验；Phase 4 起接入 pip-audit 依赖审计" }
+
+  - id: STD-011
+    name: 数据库访问参数化查询，防注入
+    scope: database
+    severity: BLOCKER
+    check: { type: manual, method: "AI/人工审查项（涉及数据库的任务强制触发）" }
+
+  - id: STD-012
+    name: 数据库结构变更加版本化迁移，禁止手工改生产结构
+    scope: database
+    severity: CRITICAL
+    check: { type: manual, method: "AI/人工审查项＋迁移脚本存在性校验" }

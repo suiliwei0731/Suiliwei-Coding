@@ -1,0 +1,39 @@
+# 模型接入配置
+# 依据：ADR-002；D3（云端 OpenAI 兼容优先，预留本地）；规范 §2（角色不绑定模型）
+# 密钥一律经环境变量注入，禁止写入本文件或任何入库文件（policies.yaml secrets 节）
+schema_version: 1
+
+default_profile: cloud-openai-compatible
+
+profiles:
+  cloud-openai-compatible:
+    provider: openai-compatible
+    enabled: false              # Phase 4 由用户显式配置后启用；此前禁止真实调用
+    base_url_env: AI_DEV_PLATFORM_MODEL_BASE_URL
+    api_key_env: AI_DEV_PLATFORM_MODEL_API_KEY
+    model_env: AI_DEV_PLATFORM_MODEL_NAME
+    request_timeout_seconds: 60
+    max_retries: 3
+    retry_backoff: exponential
+    structured_output:
+      enforce_json_schema: true  # 校验失败按错误处理，不静默降级（ADR-002）
+
+  local-reserved:
+    provider: openai-compatible   # Ollama 等 OpenAI 兼容端点走同一协议
+    enabled: false
+    note: 本地模型预留（D3/ADR-002），Phase 4 后按需求评估实现
+    base_url_env: AI_DEV_PLATFORM_LOCAL_MODEL_BASE_URL
+
+# Phase 1–2 模拟适配器（P1-6）：脚本化响应，可注入超时/错误/格式错误
+simulation:
+  enabled: true
+  injectable_failures: [timeout, network_error, malformed_json, rate_limit]
+  note: 模拟模式不得声称为真实多模型并行（规范 §1.9）
+
+usage:
+  # D10 暂定：第一版记录用量不强制限额；预算配置化预留
+  record_usage: true
+  budget_limits:
+    max_retries_per_task: 3
+    task_timeout_seconds: 1800
+    token_budget_per_task: null   # null=不强制限额，预留配置

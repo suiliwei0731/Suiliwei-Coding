@@ -1,0 +1,29 @@
+# 平台基础配置
+# 依据：规范 §3（定位）、§14（结构）、ADR-000；实施计划 §4 Phase 0
+schema_version: 1
+
+platform:
+  name: ai-dev-platform
+  display_name: AI 自主软件研发平台
+  version: 0.1.0
+  primary_os: windows          # D1（ADR-003 已确认）
+  language: zh-CN              # 文档/注释/提交信息语言约定
+
+paths:
+  runtime_state: runtime/state
+  runtime_logs: runtime/logs
+  runtime_artifacts: runtime/artifacts
+  runtime_checkpoints: runtime/checkpoints
+  user_workspace_root: null    # 用户项目工作区根；由安装/配置流程写入，不入库 secrets
+
+execution:
+  # Phase 1–2 使用模拟模型适配器（实施计划 §2.1 模拟先行）
+  model_mode: simulation       # simulation | cloud | local
+  single_project_serial: true  # D7 暂定：第一版单项目串行
+
+decisions:
+  baseline_adr: docs/architecture/decisions/ADR-003-基线决策记录.md
+  d1_windows_first: confirmed
+  d3_cloud_model_first: confirmed
+  d4_workspace_allowlist: confirmed
+  d9_four_approval_gates: confirmed

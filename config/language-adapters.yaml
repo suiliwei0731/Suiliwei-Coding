@@ -1,0 +1,56 @@
+# 语言适配器配置
+# 依据：实施计划 P5-1/P6-3~6-5；D6（暂定）：Python → JS/TS → Java → C#/.NET
+# 约定：status: planned 的适配器尚未实现；其命令在对应 Phase 验收时必须真实运行通过（规范 §1.9：生成代码不作为语言支持完成的证据）
+schema_version: 1
+
+adapters:
+  python:
+    status: planned             # Phase 5（P5-1）实现并验收
+    phase: P5
+    supported_versions: ">=3.10"
+    package_manager: pip+venv   # 依赖锁定 requirements.txt / pyproject
+    commands:
+      format_check: "ruff format --check ."
+      lint: "ruff check ."
+      type_check: "mypy ."
+      test: "pytest -q"
+      build: "python -m build"
+    docker_support: true        # P5-1 要求 Docker 支持
+
+  javascript-typescript:
+    status: planned
+    phase: P6
+    package_manager: npm/pnpm
+    commands:
+      format_check: "prettier --check ."
+      lint: "eslint ."
+      type_check: "tsc --noEmit"
+      test: "vitest run"
+      build: "npm run build"
+
+  java:
+    status: planned
+    phase: P6
+    build_tool: maven
+    commands:
+      format_check: "mvn spotless:check"
+      lint: "mvn verify -DskipTests"
+      type_check: "mvn compile"
+      test: "mvn test"
+      build: "mvn package"
+
+  dotnet:
+    status: planned
+    phase: P6
+    build_tool: dotnet
+    commands:
+      format_check: "dotnet format --verify-no-changes"
+      lint: "dotnet build -warnaserror"
+      type_check: "dotnet build"
+      test: "dotnet test"
+      build: "dotnet publish"
+
+# 混合技术栈（P6-6）：模块语言识别、契约集成验证、构建顺序
+mixed_stack:
+  enabled: false
+  strategy: module_language_detection

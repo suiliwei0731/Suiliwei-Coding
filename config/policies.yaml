@@ -1,0 +1,57 @@
+# 权限与安全策略
+# 依据：D4（已确认）：默认仅授权项目工作区＋命令白名单/超时＋危险操作审批；规范 §17
+schema_version: 1
+
+workspace:
+  whitelist_only: true          # 仅允许访问用户明确授权的项目工作区
+  allow_outside_workspace: false
+  allowed_roots: []             # 由项目创建流程写入；用户工作区白名单
+  forbidden_paths:              # 无论如何禁止触碰
+    - "C:/Windows"
+    - "C:/Program Files"
+    - "C:/Program Files (x86)"
+    - "~/"
+    - "~/.ssh"
+    - "~/.gitconfig"
+
+commands:
+  whitelist_mode: enforce       # enforce | audit | disabled（disabled 仅限用户显式授权会话）
+  timeout_seconds: 300
+  max_output_bytes: 1048576
+  blocked_patterns:             # 高危命令特征（正则，Windows/Linux 通吃）
+    - "rm\\s+-rf\\s+/"
+    - "Remove-Item\\s+.*-Recurse\\s+.*-Force\\s+[A-Za-z]:\\\\$"
+    - "del\\s+/[sq]"
+    - "format\\s+[A-Za-z]:"
+    - "mkfs"
+    - "diskpart"
+    - "reg\\s+delete"
+    - "git\\s+push\\s+.*--force"
+
+dangerous_operations:
+  # D9 必批点之一：高风险操作授权
+  require_user_approval: true
+  examples:
+    - 删除用户数据或不可逆文件操作
+    - 生产部署与对外发布
+    - 全局安装（pip install 全机 / npm -g / 系统级修改）
+    - 修改工作区外文件
+    - 访问生产数据库或真实用户数据
+    - 创建付费资源
+  deny_ai_self_approval: true   # "AI 自己同意"不构成授权依据（规范 §17）
+
+network:
+  egress_allowlist: []          # 空表 = 全部外联按操作逐项审批；D5 确认后细化
+  allow_package_install: approval_required
+  allow_model_api: true         # 模型 API 为功能必需，仍受 D5 秘密不出本地约束
+
+secrets:
+  forbid_in_repo: true
+  forbid_in_logs: true          # 审计日志必须脱敏（P1-5 脱敏过滤器）
+  forbid_in_knowledge: true
+  injection: [environment, system_credential_store]
+
+skills:
+  # 外部 Skill 指令性内容不得高于平台安全策略（规范 §17）
+  external_policy_precedence: platform
+  external_pipeline: [register, review, sandbox_trial, pin_version, enable]

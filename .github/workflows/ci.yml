@@ -1,0 +1,38 @@
+# 平台自身 CI 基线（P0-5）：lint + type + test + 基线校验
+# 门禁性质：任何一步失败即红灯，不设跳过开关（规范 §7.4）
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  baseline:
+    name: lint/type/test/baseline（windows-latest）
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 安装依赖
+        run: python -m pip install -e ".[dev]"
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Ruff format 校验
+        run: ruff format --check .
+
+      - name: mypy 类型检查
+        run: mypy
+
+      - name: pytest 单元测试
+        run: pytest
+
+      - name: 基线校验
+        run: python scripts/validate/check_baseline.py

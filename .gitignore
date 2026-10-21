@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.python-version
+
+# 工具缓存
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# 运行态目录：内容不入库，仅保留目录占位
+runtime/state/*
+runtime/logs/*
+runtime/artifacts/*
+runtime/checkpoints/*
+!runtime/state/.gitkeep
+!runtime/logs/.gitkeep
+!runtime/artifacts/.gitkeep
+!runtime/checkpoints/.gitkeep
+
+# 秘密与环境
+.env
+*.key
+*.pem
+
+# 编辑器/系统
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini

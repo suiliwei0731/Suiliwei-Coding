@@ -1,0 +1,97 @@
+# 平台自有技能注册表（唯一登记入口）
+# 依据：AGENTS.md §4；规范 §14.2、§2（Skill 定义）
+# 规则：
+#   - 技能正文 = 技能目录下 SKILL.md（frontmatter 至少含 name/description）
+#   - status: planned(已规划) | draft(编写中) | draft-reviewed | active | deprecated
+#   - 只有 active 技能可被工作流引用；planned/draft 不得算作已具备能力
+#   - 外部技能不进本表，登记于 knowledge/skills-registry/（Phase 4 起强制走接入流水线）
+schema_version: 1
+
+skills:
+  - id: requirements-interview
+    name: 需求访谈
+    path: skills/requirements-interview/SKILL.md
+    status: draft
+    phases: [P2]
+    serving_roles: [requirements-analyst]
+    description: 一次一问、选项化、矛盾识别与假设标记的结构化需求访谈流程（规范 §5.2）。
+
+  - id: spec-driven-development
+    name: 规格驱动开发
+    path: skills/spec-driven-development/SKILL.md
+    status: planned
+    phases: [P2]
+    serving_roles: [requirements-analyst, architect]
+    description: 以 PRD/用户故事/验收标准/追踪矩阵为源驱动实现与验收。
+
+  - id: task-decomposition
+    name: 任务拆分
+    path: skills/task-decomposition/SKILL.md
+    status: planned
+    phases: [P2]
+    serving_roles: [orchestrator]
+    description: 拆分为依赖清晰、粒度可验收的任务 DAG，含 allowed_paths 与验收条件。
+
+  - id: tdd
+    name: 测试先行开发
+    path: skills/tdd/SKILL.md
+    status: planned
+    phases: [P3]
+    serving_roles: [testing-designer, frontend-developer, backend-developer]
+    description: 契约与测试先行，先写用例再实现，覆盖正常/边界/异常路径。
+
+  - id: api-contract
+    name: API 契约设计与验证
+    path: skills/api-contract/SKILL.md
+    status: planned
+    phases: [P3]
+    serving_roles: [architect, api-sdk-developer]
+    description: 机器可读契约（OpenAPI）、错误码/分页/超时/版本策略与契约测试。
+
+  - id: code-review
+    name: 结构化代码审查
+    path: skills/code-review/SKILL.md
+    status: planned
+    phases: [P3]
+    serving_roles: [code-reviewer]
+    description: 按统一严重度量表输出文件/行号级结构化意见，阻断项显式标注。
+
+  - id: debug-recovery
+    name: 调试与恢复
+    path: skills/debug-recovery/SKILL.md
+    status: planned
+    phases: [P3]
+    serving_roles: [integration-fixer]
+    description: 根因分析优先的最小修复循环，禁止删测试/放宽断言制造通过。
+
+  - id: database-design
+    name: 数据库设计与迁移
+    path: skills/database-design/SKILL.md
+    status: planned
+    phases: [P5]
+    serving_roles: [database-engineer]
+    description: 版本化迁移、约束设计、参数化查询与可重置测试数据环境。
+
+  - id: security-review
+    name: 安全审查
+    path: skills/security-review/SKILL.md
+    status: planned
+    phases: [P3]
+    serving_roles: [security-reviewer]
+    description: 权限、密钥、输入处理、依赖与供应链风险的威胁模型化审查。
+
+  - id: release-deployment
+    name: 发布与部署
+    path: skills/release-deployment/SKILL.md
+    status: planned
+    phases: [P5]
+    serving_roles: [devops-release]
+    description: 构建、打包、健康检查、回滚方案与发布记录的受控交付流程。
+
+  - id: knowledge-governance
+    name: 知识治理
+    path: skills/knowledge-governance/SKILL.md
+    status: planned
+    phases: [P6]
+    serving_roles: [architect, code-reviewer]
+    description: 知识入库审查、可信等级流转、弃用标记与回归验证（规范 §10）。

@@ -1,0 +1,55 @@
+# 质量门禁配置
+# 依据：规范 §16.3（严重度量表）、§16.4（每任务最低门禁）、§7.4（门禁执行原则）、§9（状态机）
+schema_version: 1
+
+severity_scale:                 # 统一严重度量表（5 级，检查与审查共用，顺序即优先级）
+  - BLOCKER                     # 阻断交付
+  - CRITICAL                    # 关键功能或安全
+  - MAJOR                       # 重要逻辑/兼容/质量（"警告"档）
+  - MINOR                       # 一般改进
+  - INFO                        # 非阻断建议
+blocking_severities: [BLOCKER]  # 阻断项失败 → 任务转 FAILED/REWORK（§9.2）
+
+unverified:
+  marker: UNVERIFIED
+  rule: 工具不可用时标记"未验证"，禁止计入通过（红线 2）
+  evidence_required: [原因, 可复现命令]
+
+task_minimum_gates:             # §16.4 每任务最低门禁（按适用性执行）
+  - id: G-FORMAT
+    name: 格式化与 lint
+    kind: auto
+    check: language_adapter.lint
+  - id: G-TYPE
+    name: 类型检查或编译
+    kind: auto
+    check: language_adapter.type_check
+  - id: G-UNIT
+    name: 相关单元测试
+    kind: auto
+    check: language_adapter.test
+  - id: G-REVIEW
+    name: 代码审查（结构化、按严重度分级）
+    kind: agent                 # AI/人工审查项，显式标记（规范 §7.2）
+  - id: G-SCOPE
+    name: 变更范围与需求一致性（对照 allowed_paths 与需求 ID）
+    kind: auto
+    check: orchestrator.scope_check
+  - id: G-DEPS
+    name: 依赖与安全风险
+    kind: auto
+    check: security.dependency_audit
+  - id: G-DOCS
+    name: 文档更新（公共模块/接口变更时）
+    kind: manual
+
+evidence:
+  # §7.4：所有门禁保存命令、工具版本、退出码、摘要和产物位置
+  required_fields: [command, tool_version, exit_code, summary, artifact_path]
+  storage: runtime/artifacts    # 文件证据入库路径引用（ADR-001）
+
+gates_principles:
+  - 阻断项失败时任务不得标记完成；未通过任务对依赖它的后续任务不可见
+  - AI 不能把失败改写成成功；不接受 AI 自报状态
+  - 代码修改、依赖升级和配置变更必须重跑受影响的检查
+  - 例外批准仅限授权角色，并记录原因与有效期
