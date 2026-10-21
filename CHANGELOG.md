@@ -20,4 +20,4 @@
 
 ### 已知限制
 
-- Git/Node/Docker 在当前开发机未安装（见 PROJECT_CONTEXT.md 环境报告）；涉及它们的验证如实标注"未验证"。
+- Node/Docker 在当前开发机未安装（见 PROJECT_CONTEXT.md 环境报告）；涉及它们的验证如实标注"未验证"。Git 已于 2026-10-22 安装并完成首次提交。
