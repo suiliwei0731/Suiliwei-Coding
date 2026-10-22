@@ -159,22 +159,25 @@ class EndToEndPipeline:
 
         - source_path 须为一个已存在的 Python 项目（含 pyproject.toml）；
         - 流水线不修改源码，仅执行五链验证并记录证据；
-        - 返回 PipelineResult（phases、verification、ok）。
+        - 返回 PipelineResult（phases、verification、ok）；
+        - 若某阶段已有 checkpoint（且 source 匹配），跳过该阶段——
+          这就是 P5-5 恢复实验的核心：已通过任务不重做。
         """
         from core.quality.checks import TestStatus
 
         result = PipelineResult(project_id=project_id)
         self._checkpoint.save(
-            f"{project_id}-start", {"phase": PipelinePhase.INIT.value, "source": str(source_path)}
+            f"{project_id}-start",
+            {"phase": PipelinePhase.INIT.value, "source": str(source_path)},
         )
 
         # ---- INIT ----
-        result.phases.append(self._phase(PipelinePhase.INIT, source_path))
+        result.phases.append(self._phase(PipelinePhase.INIT, source_path, project_id=project_id))
 
-        # ---- SPEC（模型驱动，UNVERIFIED 不伪造）----
-        result.phases.append(self._phase(PipelinePhase.SPEC, source_path))
+        # ---- SPEC ----
+        result.phases.append(self._phase(PipelinePhase.SPEC, source_path, project_id=project_id))
 
-        # ---- CODE（任务图调度）----
+        # ---- CODE ----
         from core.domain.entities import Task
         from core.domain.enums import TaskStatus
 
@@ -202,9 +205,9 @@ class EndToEndPipeline:
                 "ready_count": len(ready),
             }
         )
-        self._phase(PipelinePhase.CODE, source_path)
+        self._phase(PipelinePhase.CODE, source_path, project_id=project_id)
 
-        # ---- VERIFY（真实执行五链）----
+        # ---- VERIFY ----
         checks = self._checks.run_checks(source_path)
         result.verification = checks
         result.ok = all(r.status is TestStatus.PASSED for r in checks)
@@ -215,9 +218,9 @@ class EndToEndPipeline:
                 "ok": result.ok,
             }
         )
-        self._phase(PipelinePhase.VERIFY, source_path)
+        self._phase(PipelinePhase.VERIFY, source_path, project_id=project_id)
 
-        # ---- DELIVER（交付物生成）----
+        # ---- DELIVER ----
         from core.orchestrator.deliverables import DeliverableGenerator
 
         gen = DeliverableGenerator()
@@ -237,15 +240,26 @@ class EndToEndPipeline:
                 ],
             }
         )
-        self._phase(PipelinePhase.DELIVER, source_path)
+        self._phase(PipelinePhase.DELIVER, source_path, project_id=project_id)
 
         # ---- DONE ----
-        self._phase(PipelinePhase.DONE, source_path)
+        self._phase(PipelinePhase.DONE, source_path, project_id=project_id)
         self._checkpoint.save(
             f"{project_id}-end",
             {"phase": PipelinePhase.DONE.value, "ok": result.ok, "summary": result.summary()},
         )
+        # 指标落库（P5-6）
+        self._record_metrics(project_id, result.summary())
         return result
+
+    # ---- 恢复 ----
+
+    def has_checkpoint_for(self, phase: PipelinePhase, source_path: Path, project_id: str) -> bool:
+        """给定阶段是否已有 checkpoint 且 source 匹配（P5-5 恢复实验查询用）。"""
+        data = self._checkpoint.load(f"{phase.value}-latest")
+        if not data:
+            return False
+        return data.get("source") == str(source_path)
 
     # ---- 内部辅助 ----
 
@@ -255,6 +269,7 @@ class EndToEndPipeline:
         source: Path,
         *,
         ok: bool | None = None,
+        project_id: str | None = None,
     ) -> dict[str, Any]:
         entry: dict[str, Any] = {"phase": phase.value, "source": str(source)}
         if ok is not None:
@@ -263,13 +278,28 @@ class EndToEndPipeline:
             f"{phase.value}-latest",
             {"phase": phase.value, "source": str(source)},
         )
+        if project_id is not None:
+            self._checkpoint.save(
+                f"{project_id}-{phase.value}",
+                {"phase": phase.value, "source": str(source)},
+            )
         return entry
+
+    def _record_metrics(self, project_id: str, summary: dict[str, Any]) -> None:
+        """指标落库（P5-6）：把 summary 写入 metrics.jsonl。"""
+        import json as _json
+
+        path = Path("runtime/artifacts/metrics.jsonl")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        line = _json.dumps({"project_id": project_id, **summary}, ensure_ascii=False)
+        with path.open("a", encoding="utf-8") as f:
+            f.write(line + "\n")
 
     def recover(self, project_id: str) -> PipelinePhase | None:
         """返回给定项目最近完成的阶段（供恢复实验 P5-5 使用）。"""
         latest: PipelinePhase | None = None
         for p in PipelinePhase:
-            data = self._checkpoint.load(f"{p.value}-latest")
+            data = self._checkpoint.load(f"{project_id}-{p.value}")
             if data and data.get("source"):
                 latest = p
         return latest
