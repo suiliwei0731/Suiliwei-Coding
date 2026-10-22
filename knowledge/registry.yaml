@@ -1,0 +1,43 @@
+# 知识库登记表（实施计划 P4-6）
+# 字段：id / title / path（来源）/ layer（分层）/ trust（可信等级）/ version / tags / summary
+# 分层：PLATFORM（平台规范）→ PROJECT（项目知识）→ LANGUAGE（语言/技术栈）→ DOMAIN（业务领域）
+# 可信等级：VERIFIED > REVIEWED > UNVERIFIED > DEPRECATED
+# 规则：检索默认排除 DEPRECATED；仅显式 include_deprecated 或 trust 过滤时才返回。
+schema_version: 1
+
+entries:
+  - id: platform-rules-core
+    title: 平台核心工程规则
+    path: knowledge/standards/rules-core.yaml
+    layer: PLATFORM
+    trust: VERIFIED
+    version: "1"
+    tags: [规则, 工程标准, 门禁, 质量, lint, 静态分析]
+    summary: 覆盖格式化、静态分析、类型检查、测试与人工审查项的七要素规则集。
+
+  - id: platform-agents-conventions
+    title: Agent 协作与平台约定
+    path: AGENTS.md
+    layer: PLATFORM
+    trust: VERIFIED
+    version: "1"
+    tags: [agent, 角色, 协作, 约定, 工作流]
+    summary: 明确多角色职责、证据驱动状态转移与禁止伪造通过等平台红线。
+
+  - id: project-context
+    title: 项目背景与架构上下文
+    path: PROJECT_CONTEXT.md
+    layer: PROJECT
+    trust: REVIEWED
+    version: "1"
+    tags: [项目, 背景, 架构, 约束]
+    summary: 平台定位、建设期与运行期边界、关键决策索引。
+
+  - id: python-toolchain
+    title: Python 工具链与检查配置
+    path: config/language-adapters.yaml
+    layer: LANGUAGE
+    trust: REVIEWED
+    version: "1"
+    tags: [python, 工具链, ruff, mypy, pytest, 检查]
+    summary: Python 项目的格式化、静态分析、类型检查、测试与构建命令配置。
