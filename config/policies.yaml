@@ -18,6 +18,27 @@ commands:
   whitelist_mode: enforce       # enforce | audit | disabled（disabled 仅限用户显式授权会话）
   timeout_seconds: 300
   max_output_bytes: 1048576
+  allowed_executables:          # 可执行文件名白名单（P4-2；不区分大小写，含 .exe/.cmd 后缀）
+    - python
+    - python3
+    - py
+    - pytest
+    - ruff
+    - mypy
+    - pip
+    - uv
+    - git
+    - node
+    - npm
+    - npx
+    - dotnet
+    - java
+    - mvn
+    - gradle
+    - go
+    - cargo
+    - make
+    - docker
   blocked_patterns:             # 高危命令特征（正则，Windows/Linux 通吃）
     - "rm\\s+-rf\\s+/"
     - "Remove-Item\\s+.*-Recurse\\s+.*-Force\\s+[A-Za-z]:\\\\$"
