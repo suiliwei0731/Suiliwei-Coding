@@ -40,7 +40,7 @@ select = ["E", "F", "W", "I", "UP", "B"]
 python_version = "3.12"
 ignore_missing_imports = true
 check_untyped_defs = true
-files = ["scripts", "core"]
+files = ["scripts", "core", "adapters", "apps"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
