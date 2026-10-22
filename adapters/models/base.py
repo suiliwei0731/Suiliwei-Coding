@@ -42,6 +42,12 @@ class RateLimited(ModelError):
     retryable = True
 
 
+class ModelCancelled(ModelError):
+    """调用被取消（用户/控制器主动中止，不重试）。"""
+
+    retryable = False
+
+
 @dataclass(frozen=True, kw_only=True)
 class CompletionRequest:
     """一次补全请求。role 为职责配置，不绑定具体模型（§2）。"""
