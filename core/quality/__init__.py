@@ -19,6 +19,12 @@ from core.quality.gate import (
     RuleFinding,
     evaluate,
 )
+from core.quality.waiver import (
+    Waiver,
+    WaiverError,
+    create_waiver,
+    is_waiver_valid,
+)
 
 __all__ = [
     "DEFAULT_TIMEOUT_SECONDS",
@@ -31,5 +37,9 @@ __all__ = [
     "GateExecutor",
     "GateOutcome",
     "RuleFinding",
+    "Waiver",
+    "WaiverError",
+    "create_waiver",
     "evaluate",
+    "is_waiver_valid",
 ]
