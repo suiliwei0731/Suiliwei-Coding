@@ -9,6 +9,12 @@ from core.orchestrator.dag import (
     UnknownDependencyError,
 )
 from core.orchestrator.recovery import recover_in_progress_tasks
+from core.orchestrator.retry import (
+    RetryBudgetExhausted,
+    RetryController,
+    RetryPolicy,
+    execute_with_retry,
+)
 from core.orchestrator.store import StateStore
 
 __all__ = [
@@ -16,8 +22,12 @@ __all__ = [
     "CycleError",
     "DependencyError",
     "DuplicateTaskError",
+    "RetryBudgetExhausted",
+    "RetryController",
+    "RetryPolicy",
     "StateStore",
     "TaskGraph",
     "UnknownDependencyError",
+    "execute_with_retry",
     "recover_in_progress_tasks",
 ]
