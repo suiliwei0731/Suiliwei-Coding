@@ -1,5 +1,6 @@
 """编排核心：任务依赖图（DAG）、持久化、重试与预算控制（规范 §8/§9）。"""
 
+from core.orchestrator.checkpoint import CheckpointManager
 from core.orchestrator.dag import (
     CycleError,
     DependencyError,
@@ -7,11 +8,16 @@ from core.orchestrator.dag import (
     TaskGraph,
     UnknownDependencyError,
 )
+from core.orchestrator.recovery import recover_in_progress_tasks
+from core.orchestrator.store import StateStore
 
 __all__ = [
+    "CheckpointManager",
     "CycleError",
     "DependencyError",
     "DuplicateTaskError",
+    "StateStore",
     "TaskGraph",
     "UnknownDependencyError",
+    "recover_in_progress_tasks",
 ]
