@@ -10,10 +10,26 @@ from core.quality.checks import (
     CheckKind,
     CheckResult,
 )
+from core.quality.gate import (
+    GATE_ACTOR,
+    RULE_TO_CHECK_KIND,
+    GateError,
+    GateExecutor,
+    GateOutcome,
+    RuleFinding,
+    evaluate,
+)
 
 __all__ = [
     "DEFAULT_TIMEOUT_SECONDS",
+    "GATE_ACTOR",
+    "RULE_TO_CHECK_KIND",
     "CheckAdapter",
     "CheckKind",
     "CheckResult",
+    "GateError",
+    "GateExecutor",
+    "GateOutcome",
+    "RuleFinding",
+    "evaluate",
 ]
