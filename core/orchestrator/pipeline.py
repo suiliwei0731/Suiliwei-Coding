@@ -217,8 +217,27 @@ class EndToEndPipeline:
         )
         self._phase(PipelinePhase.VERIFY, source_path)
 
-        # ---- DELIVER ----
-        result.phases.append(self._phase(PipelinePhase.DELIVER, source_path, ok=result.ok))
+        # ---- DELIVER（交付物生成）----
+        from core.orchestrator.deliverables import DeliverableGenerator
+
+        gen = DeliverableGenerator()
+        bundle = gen.generate(
+            project_id=project_id,
+            verification=checks,
+            source_path=source_path,
+        )
+        result.phases.append(
+            {
+                "phase": PipelinePhase.DELIVER.value,
+                "ok": result.ok,
+                "deliverables": [
+                    str(f.relative_to(bundle.base_dir.parent.parent.parent))
+                    for f in bundle.files
+                    if f.exists()
+                ],
+            }
+        )
+        self._phase(PipelinePhase.DELIVER, source_path)
 
         # ---- DONE ----
         self._phase(PipelinePhase.DONE, source_path)
