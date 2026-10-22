@@ -40,8 +40,17 @@ from core.requirements.prd import (
     save_prd,
     validate_prd_markdown,
 )
+from core.requirements.traceability import (
+    CSV_HEADER,
+    GapReport,
+    TraceabilityError,
+    TraceabilityMatrix,
+    TraceRow,
+    build_matrix,
+)
 
 __all__ = [
+    "CSV_HEADER",
     "EMPTY_SECTION",
     "REQUIRED_SECTIONS",
     "REQUIREMENT_TERMINAL_STATES",
@@ -51,6 +60,7 @@ __all__ = [
     "Contradiction",
     "DraftNotReadyError",
     "DuplicateAnswerError",
+    "GapReport",
     "IllegalRequirementTransitionError",
     "InterviewError",
     "InterviewSession",
@@ -70,8 +80,12 @@ __all__ = [
     "RequirementTransitionResult",
     "RequirementWorkflowError",
     "ScriptedRespondent",
+    "TraceRow",
+    "TraceabilityError",
+    "TraceabilityMatrix",
     "UnknownQuestionError",
     "UserStory",
+    "build_matrix",
     "build_prd",
     "run_interview_round",
     "save_prd",
