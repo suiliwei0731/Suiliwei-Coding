@@ -44,6 +44,10 @@ class PipelineResult:
     phases: list[dict[str, Any]] = field(default_factory=list)
     verification: list[Any] = field(default_factory=list)  # list[CheckResult] 延迟类型
     ok: bool = False
+    model_mode: str = "unknown"  # injected / real / simulated
+    model_unverified_reason: str | None = None
+    model_calls: int = 0
+    citations: list[str] = field(default_factory=list)
 
     def summary(self) -> dict[str, Any]:
         from core.quality.checks import TestStatus
@@ -56,6 +60,9 @@ class PipelineResult:
                 1 for r in self.verification if getattr(r, "status", None) is TestStatus.PASSED
             ),
             "verification_total": len(self.verification),
+            "model_mode": self.model_mode,
+            "model_calls": self.model_calls,
+            "model_unverified": self.model_unverified_reason is not None,
         }
 
 
@@ -77,7 +84,10 @@ class EndToEndPipeline:
         security: Any | None = None,
         checks: Any | None = None,
         model: _ModelLike | None = None,
+        knowledge: Any | None = None,  # KnowledgeIndex（延迟类型）
+        model_profile_name: str | None = None,
         checkpoint_dir: Path | str = "runtime/checkpoints",
+        prompt_max_chars: int = 6000,
     ) -> None:
         self._store = store
         self._audit = audit
@@ -89,11 +99,84 @@ class EndToEndPipeline:
         from adapters.languages.python import PythonLanguageAdapter
 
         self._checks = checks or PythonLanguageAdapter()
-        # 默认用 SimulatedAdapter 提供确定性的需求/任务拆解输入
-        # （真实模型由调用方注入；未注入时显式标注 UNVERIFIED）
-        self._model: _ModelLike | None = model or self._default_model()
+        # 知识库：默认加载仓库 knowledge/registry.yaml（P4-6）
+        if knowledge is None:
+            from core.knowledge import KnowledgeIndex
+
+            knowledge = KnowledgeIndex.from_file()
+        self._knowledge = knowledge
+        self._prompt_max_chars = prompt_max_chars
+        # 模型：显式注入优先；否则按 config/models.yaml 解析真实 profile，
+        # profile 未启用或环境变量缺失时回退模拟适配器并如实标注 UNVERIFIED。
+        self._model, self._model_mode, self._model_reason = self._resolve_model(
+            model, model_profile_name
+        )
         self._checkpoint = CheckpointManager(checkpoint_dir)
         self._retry = RetryController()
+
+    # ---- 模型解析 ----
+
+    def _resolve_model(
+        self, model: _ModelLike | None, profile_name: str | None
+    ) -> tuple[_ModelLike, str, str | None]:
+        """返回（适配器, 模式, 未验证原因）。"""
+        if model is not None:
+            return model, "injected", None
+
+        from adapters.models import ModelError, ModelProfile, OpenAICompatibleAdapter
+
+        try:
+            profile = ModelProfile.from_config(profile_name)
+        except ModelError as exc:
+            return (
+                self._default_model(),
+                "simulated",
+                f"模型 profile 不可用：{exc}；本次模型输出为模拟结果，标注 UNVERIFIED",
+            )
+        # 除 config 的 enabled 外，允许用环境变量显式启用（不写入任何入库文件）
+        env_enabled = self._env_truthy("AI_DEV_PLATFORM_MODEL_ENABLED")
+        if not profile.enabled:
+            if not env_enabled:
+                return (
+                    self._default_model(),
+                    "simulated",
+                    "模型 profile 未启用（config/models.yaml enabled=false，"
+                    "且未设置 AI_DEV_PLATFORM_MODEL_ENABLED）；"
+                    "本次模型输出为模拟结果，标注 UNVERIFIED",
+                )
+            from dataclasses import replace
+
+            profile = replace(profile, enabled=True)
+
+        missing = self._missing_env(profile.base_url_env, profile.api_key_env, profile.model_env)
+        if missing:
+            return (
+                self._default_model(),
+                "simulated",
+                f"真实模型不可用：缺少环境变量 {', '.join(missing)}；"
+                "本次模型输出为模拟结果，标注 UNVERIFIED",
+            )
+        try:
+            adapter = OpenAICompatibleAdapter(profile, audit=self._audit)
+        except ModelError as exc:
+            return (
+                self._default_model(),
+                "simulated",
+                f"真实模型不可用：{exc}；本次模型输出为模拟结果，标注 UNVERIFIED",
+            )
+        return adapter, "real", None
+
+    @staticmethod
+    def _env_truthy(name: str) -> bool:
+        import os
+
+        return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+    @staticmethod
+    def _missing_env(*names: str) -> list[str]:
+        import os
+
+        return [n for n in names if not os.environ.get(n, "").strip()]
 
     # ---- 默认模型 ----
 
@@ -165,7 +248,11 @@ class EndToEndPipeline:
         """
         from core.quality.checks import TestStatus
 
-        result = PipelineResult(project_id=project_id)
+        result = PipelineResult(
+            project_id=project_id,
+            model_mode=self._model_mode,
+            model_unverified_reason=self._model_reason,
+        )
         self._checkpoint.save(
             f"{project_id}-start",
             {"phase": PipelinePhase.INIT.value, "source": str(source_path)},
@@ -174,10 +261,12 @@ class EndToEndPipeline:
         # ---- INIT ----
         result.phases.append(self._phase(PipelinePhase.INIT, source_path, project_id=project_id))
 
-        # ---- SPEC ----
-        result.phases.append(self._phase(PipelinePhase.SPEC, source_path, project_id=project_id))
+        # ---- SPEC（知识检索 → prompt → 模型调用）----
+        spec_entry = self._run_spec(result, project_id, source_path)
+        result.phases.append(spec_entry)
+        self._phase(PipelinePhase.SPEC, source_path, project_id=project_id)
 
-        # ---- CODE ----
+        # ---- CODE（任务图 + 实现计划）----
         from core.domain.entities import Task
         from core.domain.enums import TaskStatus
 
@@ -198,13 +287,10 @@ class EndToEndPipeline:
         )
         graph = TaskGraph([t1, t2])
         ready = list(graph.ready_tasks())
-        result.phases.append(
-            {
-                "phase": PipelinePhase.CODE.value,
-                "graph_tasks": 2,
-                "ready_count": len(ready),
-            }
-        )
+        code_entry = self._run_code(result, project_id, source_path, len(ready))
+        code_entry["graph_tasks"] = 2
+        code_entry["ready_count"] = len(ready)
+        result.phases.append(code_entry)
         self._phase(PipelinePhase.CODE, source_path, project_id=project_id)
 
         # ---- VERIFY ----
@@ -251,6 +337,124 @@ class EndToEndPipeline:
         # 指标落库（P5-6）
         self._record_metrics(project_id, result.summary())
         return result
+
+    # ---- 模型调用阶段 ----
+
+    def _run_spec(self, result: PipelineResult, project_id: str, source: Path) -> dict[str, Any]:
+        """SPEC：读项目上下文 → 检索知识 → 组装 prompt → 调用模型。"""
+        name, description = self._project_idea(source)
+        entry = self._invoke_model(
+            result,
+            role="product-architect",
+            goal="把项目想法拆解为可验证的需求与任务清单",
+            task_title=f"为项目「{name}」产出需求与任务拆解",
+            task_description=description,
+            project_context=self._project_context_text(source),
+            task_id=f"{project_id}-SPEC",
+        )
+        entry["phase"] = PipelinePhase.SPEC.value
+        return entry
+
+    def _run_code(
+        self, result: PipelineResult, project_id: str, source: Path, ready_count: int
+    ) -> dict[str, Any]:
+        """CODE：为就绪任务产出实现计划（本阶段不写源码文件）。"""
+        name, _ = self._project_idea(source)
+        entry = self._invoke_model(
+            result,
+            role="engineer",
+            goal="为就绪任务给出实现步骤、验收自查项与验证命令",
+            task_title=f"为项目「{name}」的 {ready_count} 个就绪任务制定实现计划",
+            task_description="仅输出计划，不直接修改源码；改动须遵守 allowed_paths。",
+            project_context=self._project_context_text(source),
+            task_id=f"{project_id}-CODE",
+        )
+        entry["phase"] = PipelinePhase.CODE.value
+        entry["source_writes"] = 0  # 当前阶段不写源码，如实记录
+        return entry
+
+    def _invoke_model(
+        self,
+        result: PipelineResult,
+        *,
+        role: str,
+        goal: str,
+        task_title: str,
+        task_description: str,
+        project_context: str,
+        task_id: str,
+    ) -> dict[str, Any]:
+        """检索知识、组装 prompt 并调用模型；失败如实标注 UNVERIFIED。"""
+        from adapters.models import CompletionRequest, ModelError
+        from core.prompt import PromptBuilder, RoleBrief
+
+        bundle = PromptBuilder(self._knowledge, max_context_chars=self._prompt_max_chars).build(
+            RoleBrief(role=role, goal=goal),
+            task_title=task_title,
+            task_description=task_description,
+            project_context=project_context,
+        )
+        result.citations.extend(c["knowledge_id"] for c in bundle.citations)
+        result.model_calls += 1
+
+        entry: dict[str, Any] = {
+            "role": role,
+            "model_mode": self._model_mode,
+            "prompt_chars": bundle.char_count,
+            "knowledge_hits": bundle.knowledge_hits,
+            "citations": [c["id"] for c in bundle.citations],
+            "truncated": bundle.truncated,
+        }
+        try:
+            completion = self._model.complete(
+                CompletionRequest(role=role, prompt=bundle.text, task_id=task_id)
+            )
+        except ModelError as exc:
+            entry["status"] = "UNVERIFIED"
+            entry["unverified_reason"] = f"模型调用失败：{exc}"
+            return entry
+        entry["status"] = "OK"
+        entry["response_chars"] = len(completion.content)
+        entry["excerpt"] = completion.content[:240]
+        return entry
+
+    @staticmethod
+    def _project_idea(source: Path) -> tuple[str, str]:
+        """从 pyproject.toml 读取项目名与描述，作为需求种子。"""
+        import tomllib
+
+        name = source.name
+        description = ""
+        pyproject = source / "pyproject.toml"
+        try:
+            data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+            project = data.get("project") or {}
+            name = str(project.get("name") or name)
+            description = str(project.get("description") or "")
+        except (OSError, tomllib.TOMLDecodeError):
+            pass
+        return name, description
+
+    @staticmethod
+    def _project_context_text(source: Path) -> str:
+        """项目上下文：目录结构与 README 摘要（有界，避免 prompt 失控）。"""
+        lines: list[str] = [f"根目录: {source.name}"]
+        try:
+            entries = sorted(
+                p.name for p in source.iterdir() if p.name not in {"__pycache__", "runtime"}
+            )
+        except OSError:
+            entries = []
+        if entries:
+            lines.append("顶层条目: " + ", ".join(entries[:30]))
+        readme = source / "README.md"
+        try:
+            text = readme.read_text(encoding="utf-8").strip()
+        except OSError:
+            text = ""
+        if text:
+            lines.extend(["README 摘要:", text[:600]])
+        return "\n".join(lines)
 
     # ---- 恢复 ----
 
