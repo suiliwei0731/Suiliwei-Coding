@@ -19,6 +19,12 @@ from core.quality.gate import (
     RuleFinding,
     evaluate,
 )
+from core.quality.report import (
+    OverallStatus,
+    QualityReport,
+    build_quality_report,
+    overall_status,
+)
 from core.quality.waiver import (
     Waiver,
     WaiverError,
@@ -36,10 +42,14 @@ __all__ = [
     "GateError",
     "GateExecutor",
     "GateOutcome",
+    "OverallStatus",
+    "QualityReport",
     "RuleFinding",
     "Waiver",
     "WaiverError",
+    "build_quality_report",
     "create_waiver",
     "evaluate",
     "is_waiver_valid",
+    "overall_status",
 ]
