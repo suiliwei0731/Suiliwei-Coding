@@ -1,4 +1,4 @@
-"""需求与规划工作流（规范 §5）：需求状态机（§5.3）与访谈引擎（§5.2）。"""
+"""需求与规划工作流（规范 §5）：需求状态机（§5.3）、访谈引擎（§5.2）与 PRD 生成（§5.4）。"""
 
 from core.requirements.interview import (
     Answer,
@@ -27,10 +27,26 @@ from core.requirements.machine import (
     RequirementTransitionResult,
     RequirementWorkflowError,
 )
+from core.requirements.prd import (
+    EMPTY_SECTION,
+    REQUIRED_SECTIONS,
+    SECTION_TITLES,
+    PRDDocument,
+    PRDSection,
+    PRDSpec,
+    PRDTemplateError,
+    UserStory,
+    build_prd,
+    save_prd,
+    validate_prd_markdown,
+)
 
 __all__ = [
+    "EMPTY_SECTION",
+    "REQUIRED_SECTIONS",
     "REQUIREMENT_TERMINAL_STATES",
     "REQUIREMENT_TRANSITIONS",
+    "SECTION_TITLES",
     "Answer",
     "Contradiction",
     "DraftNotReadyError",
@@ -41,6 +57,10 @@ __all__ = [
     "InvalidAnswerError",
     "OpenItem",
     "Option",
+    "PRDDocument",
+    "PRDSection",
+    "PRDSpec",
+    "PRDTemplateError",
     "Question",
     "RequirementConcurrencyError",
     "RequirementDraft",
@@ -51,5 +71,9 @@ __all__ = [
     "RequirementWorkflowError",
     "ScriptedRespondent",
     "UnknownQuestionError",
+    "UserStory",
+    "build_prd",
     "run_interview_round",
+    "save_prd",
+    "validate_prd_markdown",
 ]
