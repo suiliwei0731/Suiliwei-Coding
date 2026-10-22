@@ -286,10 +286,11 @@ class EndToEndPipeline:
         return entry
 
     def _record_metrics(self, project_id: str, summary: dict[str, Any]) -> None:
-        """指标落库（P5-6）：把 summary 写入 metrics.jsonl。"""
+        """指标落库（P5-6）：写入 checkpoint_dir 下的 metrics.jsonl，
+        与该 Pipeline 实例的 checkpoint 隔离。"""
         import json as _json
 
-        path = Path("runtime/artifacts/metrics.jsonl")
+        path = self._checkpoint._dir / "metrics.jsonl"
         path.parent.mkdir(parents=True, exist_ok=True)
         line = _json.dumps({"project_id": project_id, **summary}, ensure_ascii=False)
         with path.open("a", encoding="utf-8") as f:
