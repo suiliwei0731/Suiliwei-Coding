@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-dev-platform/schemas/review.schema.json",
+  "title": "代码审查结果协议",
+  "description": "依据规范 §16.3：审查意见必须含文件/行号、影响、复现条件、修改建议和是否阻断；严重度共用 5 级量表。",
+  "type": "object",
+  "required": ["schema_version", "review_id", "task_id", "reviewer_role", "verdict"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "review_id": { "type": "string", "pattern": "^REV-[A-Za-z0-9][A-Za-z0-9-]*$" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "reviewer_role": { "type": "string", "minLength": 1 },
+    "verdict": { "enum": ["PASS", "PASS_WITH_COMMENTS", "CHANGES_REQUIRED"] },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["severity", "file_path", "impact", "suggestion", "blocking"],
+        "properties": {
+          "severity": { "enum": ["BLOCKER", "CRITICAL", "MAJOR", "MINOR", "INFO"] },
+          "file_path": { "type": "string", "minLength": 1 },
+          "line": { "type": ["integer", "null"], "minimum": 1, "default": null },
+          "impact": { "type": "string", "minLength": 1 },
+          "reproduction": { "type": "string", "default": "" },
+          "suggestion": { "type": "string", "minLength": 1 },
+          "blocking": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      },
+      "default": []
+    },
+    "version": { "type": "integer", "minimum": 1, "default": 1 },
+    "created_at": { "type": "string" },
+    "updated_at": { "type": "string" }
+  },
+  "if": {
+    "properties": { "verdict": { "const": "CHANGES_REQUIRED" } }
+  },
+  "then": {
+    "properties": {
+      "findings": { "minItems": 1 }
+    }
+  },
+  "additionalProperties": false
+}

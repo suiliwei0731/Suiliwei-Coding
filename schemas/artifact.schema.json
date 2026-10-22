@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-dev-platform/schemas/artifact.schema.json",
+  "title": "产物引用协议",
+  "description": "依据 ADR-001：产物正文存 runtime/artifacts 文件区，数据库/协议只存引用路径与校验信息（SHA-256、大小）。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_id",
+    "project_id",
+    "kind",
+    "path",
+    "sha256",
+    "size_bytes"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "artifact_id": { "type": "string", "pattern": "^ART-[A-Za-z0-9][A-Za-z0-9-]*$" },
+    "project_id": { "type": "string", "minLength": 1 },
+    "task_id": { "type": ["string", "null"], "default": null },
+    "kind": { "enum": ["CODE_DIFF", "TEST_REPORT", "BUILD", "LOG", "DOC", "OTHER"] },
+    "path": { "type": "string", "minLength": 1 },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "size_bytes": { "type": "integer", "minimum": 0 },
+    "version": { "type": "integer", "minimum": 1, "default": 1 },
+    "created_at": { "type": "string" },
+    "updated_at": { "type": "string" }
+  },
+  "additionalProperties": false
+}

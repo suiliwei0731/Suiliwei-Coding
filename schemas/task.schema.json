@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-dev-platform/schemas/task.schema.json",
+  "title": "任务分配协议",
+  "description": "依据规范 §14.4 任务协议示例；status 枚举为 §9.1 的任务 10 态。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "task_id",
+    "project_id",
+    "title",
+    "owner_role",
+    "status"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "task_id": { "type": "string", "pattern": "^TASK-[A-Za-z0-9][A-Za-z0-9-]*$" },
+    "project_id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "owner_role": { "type": "string", "minLength": 1 },
+    "requirement_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "default": []
+    },
+    "inputs": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "dependencies": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^TASK-[A-Za-z0-9-]+$" },
+      "default": []
+    },
+    "allowed_paths": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "acceptance_criteria": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "default": []
+    },
+    "verification_commands": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "default": []
+    },
+    "status": {
+      "enum": [
+        "DRAFT",
+        "READY",
+        "IN_PROGRESS",
+        "REVIEW_REQUIRED",
+        "TEST_REQUIRED",
+        "PASSED",
+        "BLOCKED",
+        "FAILED",
+        "REWORK",
+        "CANCELLED"
+      ]
+    },
+    "retry_count": { "type": "integer", "minimum": 0, "default": 0 },
+    "blocked_reason": { "type": ["string", "null"], "default": null },
+    "version": { "type": "integer", "minimum": 1, "default": 1 },
+    "created_at": { "type": "string" },
+    "updated_at": { "type": "string" }
+  },
+  "additionalProperties": false
+}
