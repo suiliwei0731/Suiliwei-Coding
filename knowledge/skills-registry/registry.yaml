@@ -1,0 +1,11 @@
+# 外部 Skill 注册表（实施计划 P4-4；policies.yaml skills.external_pipeline）
+# 规则：
+#   - 外部技能一律先登记，再审查、隔离试用、固定版本，最后才可启用；
+#   - 字段：id / name / source（来源）/ license（许可证）/ version（固定版本）/
+#     review_status（审核状态）/ review_evidence / trial_evidence / dependencies /
+#     compatibility / notes；
+#   - 状态流转：REGISTERED → REVIEWED → SANDBOX_TRIAL → PINNED → ENABLED；
+#     任一未启用阶段可 REJECTED（终态）；ENABLED/REJECTED 无出边；
+#   - 只有 ENABLED 且 version 非空、许可证明确的条目可被工作流引用。
+schema_version: 1
+skills: []
