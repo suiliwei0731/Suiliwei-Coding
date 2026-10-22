@@ -5,7 +5,7 @@ schema_version: 1
 
 adapters:
   python:
-    status: planned             # Phase 5（P5-1）实现并验收
+    status: implemented          # Phase 5（P5-1）已实现并验收
     phase: P5
     supported_versions: ">=3.10"
     package_manager: pip+venv   # 依赖锁定 requirements.txt / pyproject

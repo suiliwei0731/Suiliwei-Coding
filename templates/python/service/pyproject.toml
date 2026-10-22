@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "status-service"
+version = "0.1.0"
+description = "服务模板项目：极简健康状态查询 HTTP API（仅标准库）"
+requires-python = ">=3.10"
+readme = "README.md"
+dependencies = []
+
+[project.scripts]
+status-service = "status_service.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["status_service"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "S301"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = true
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
