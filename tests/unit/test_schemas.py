@@ -1,4 +1,4 @@
-"""P1-1 单元测试：五份协议 JSON Schema 的正反例校验（实施计划 P1-1 完成标准）。
+"""协议 JSON Schema 的正反例校验（实施计划 P1-1/P2-1 完成标准）。
 
 正例：与实体 to_dict() 对齐的最小合法载荷必须通过。
 反例：缺必填、非法枚举、非法 ID 模式、附加字段、以及条件约束
@@ -17,8 +17,15 @@ def registry() -> SchemaRegistry:
     return SchemaRegistry()
 
 
-def test_registry_loads_five_schemas(registry: SchemaRegistry) -> None:
-    assert registry.names == ("artifact", "defect", "review", "task", "test-report")
+def test_registry_loads_all_schemas(registry: SchemaRegistry) -> None:
+    assert registry.names == (
+        "artifact",
+        "defect",
+        "requirement",
+        "review",
+        "task",
+        "test-report",
+    )
 
 
 VALID_TASK = {

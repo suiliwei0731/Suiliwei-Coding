@@ -22,6 +22,8 @@ from core.domain.enums import (
     DefectSource,
     DefectStatus,
     ProjectStatus,
+    RequirementKind,
+    RequirementStatus,
     ReviewVerdict,
     Severity,
     TaskStatus,
@@ -128,6 +130,82 @@ class Task(Entity):
             status=TaskStatus(data.get("status", "DRAFT")),
             retry_count=int(data.get("retry_count", 0)),
             blocked_reason=data.get("blocked_reason"),
+            schema_version=int(data.get("schema_version", 1)),
+            version=int(data.get("version", 1)),
+            created_at=str(data.get("created_at") or utc_now()),
+            updated_at=str(data.get("updated_at") or utc_now()),
+        )
+
+
+@dataclass(kw_only=True)
+class RequirementChange:
+    """需求变更记录（§5.3：回到评审时必须记录原因、影响范围、成本、
+
+    受影响任务和回归测试要求）。
+    """
+
+    reason: str  # 变更原因
+    impact_scope: str  # 影响范围
+    cost: str  # 成本评估
+    affected_tasks: list[str] = field(default_factory=list)  # 受影响任务 task_id
+    regression_required: str = ""  # 回归测试要求
+    requested_by: str = ""  # 变更提出方
+    at: str = field(default_factory=utc_now)
+
+    def to_dict(self) -> dict[str, Any]:
+        return _to_json_value(asdict(self))
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> RequirementChange:
+        return cls(
+            reason=str(data["reason"]),
+            impact_scope=str(data["impact_scope"]),
+            cost=str(data["cost"]),
+            affected_tasks=[str(x) for x in data.get("affected_tasks", [])],
+            regression_required=str(data.get("regression_required", "")),
+            requested_by=str(data.get("requested_by", "")),
+            at=str(data.get("at") or utc_now()),
+        )
+
+
+@dataclass(kw_only=True)
+class Requirement(Entity):
+    """需求条目（规范 §5.3/§5.4/§14.3）：唯一 ID、7 态状态机、验收条件。
+
+    - ``open_questions`` 非空表示仍有待确认事项（§5.2：未确认项标记待定，
+      不得当作事实）；存在待确认事项的需求不得进入 APPROVED。
+    - ``assumptions`` 为显式标记的临时假设（§5.2：可用显式标记的临时假设
+      继续规划，但不得静默当成事实）。
+    - 需求变更回到 REVIEW_REQUIRED 时，变更记录追加进 ``change_records``。
+    """
+
+    id_field: ClassVar[str] = "requirement_id"
+
+    project_id: str
+    title: str
+    kind: RequirementKind = RequirementKind.FUNCTIONAL
+    status: RequirementStatus = RequirementStatus.DRAFT
+    description: str = ""
+    acceptance_criteria: list[str] = field(default_factory=list)
+    assumptions: list[str] = field(default_factory=list)
+    open_questions: list[str] = field(default_factory=list)
+    change_records: list[RequirementChange] = field(default_factory=list)
+    confirmed_by: str = ""  # APPROVED 时的确认方（用户）
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Requirement:
+        return cls(
+            id=str(data["requirement_id"]),
+            project_id=str(data.get("project_id", "")),
+            title=str(data["title"]),
+            kind=RequirementKind(data.get("kind", "FUNCTIONAL")),
+            status=RequirementStatus(data.get("status", "DRAFT")),
+            description=str(data.get("description", "")),
+            acceptance_criteria=[str(x) for x in data.get("acceptance_criteria", [])],
+            assumptions=[str(x) for x in data.get("assumptions", [])],
+            open_questions=[str(x) for x in data.get("open_questions", [])],
+            change_records=[RequirementChange.from_dict(c) for c in data.get("change_records", [])],
+            confirmed_by=str(data.get("confirmed_by", "")),
             schema_version=int(data.get("schema_version", 1)),
             version=int(data.get("version", 1)),
             created_at=str(data.get("created_at") or utc_now()),

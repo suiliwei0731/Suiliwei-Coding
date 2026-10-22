@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-dev-platform/schemas/requirement.schema.json",
+  "title": "需求条目协议",
+  "description": "依据规范 §5.3（需求 7 态状态机）与 §5.4（需求文档与追踪）；变更记录字段对应 §5.3 回到评审时的必填项。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "requirement_id",
+    "project_id",
+    "title",
+    "kind",
+    "status"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "requirement_id": { "type": "string", "pattern": "^REQ-[A-Za-z0-9][A-Za-z0-9-]*$" },
+    "project_id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "kind": { "enum": ["FUNCTIONAL", "NON_FUNCTIONAL", "CONSTRAINT"] },
+    "status": {
+      "enum": [
+        "DRAFT",
+        "INTERVIEWING",
+        "REVIEW_REQUIRED",
+        "APPROVED",
+        "IN_IMPLEMENTATION",
+        "VERIFIED",
+        "DELIVERED"
+      ]
+    },
+    "description": { "type": "string", "default": "" },
+    "acceptance_criteria": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "default": []
+    },
+    "assumptions": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "default": []
+    },
+    "open_questions": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "default": []
+    },
+    "change_records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["reason", "impact_scope", "cost"],
+        "properties": {
+          "reason": { "type": "string", "minLength": 1 },
+          "impact_scope": { "type": "string", "minLength": 1 },
+          "cost": { "type": "string", "minLength": 1 },
+          "affected_tasks": {
+            "type": "array",
+            "items": { "type": "string" },
+            "default": []
+          },
+          "regression_required": { "type": "string", "default": "" },
+          "requested_by": { "type": "string", "default": "" },
+          "at": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "default": []
+    },
+    "confirmed_by": { "type": "string", "default": "" },
+    "version": { "type": "integer", "minimum": 1, "default": 1 },
+    "created_at": { "type": "string" },
+    "updated_at": { "type": "string" }
+  },
+  "additionalProperties": false
+}

@@ -91,6 +91,40 @@ class ApprovalStatus(StrEnum):
     EXPIRED = "EXPIRED"
 
 
+class RequirementStatus(StrEnum):
+    """需求状态机 7 态（规范 §5.3）。
+
+    主线：DRAFT → INTERVIEWING → REVIEW_REQUIRED → APPROVED → IN_IMPLEMENTATION
+    → VERIFIED → DELIVERED；需求变更允许回到 REVIEW_REQUIRED，但必须记录变更原因、
+    影响范围、成本、受影响任务和回归测试要求（§5.3）。
+    """
+
+    DRAFT = "DRAFT"  # 草案
+    INTERVIEWING = "INTERVIEWING"  # 访谈澄清中
+    REVIEW_REQUIRED = "REVIEW_REQUIRED"  # 等待用户评审确认
+    APPROVED = "APPROVED"  # 用户已确认（需求基线）
+    IN_IMPLEMENTATION = "IN_IMPLEMENTATION"  # 实施中
+    VERIFIED = "VERIFIED"  # 验收通过
+    DELIVERED = "DELIVERED"  # 已交付（终态）
+
+
+class RequirementKind(StrEnum):
+    """需求类别（§5.4：功能范围 / 非功能要求 / 运行约束）。"""
+
+    FUNCTIONAL = "FUNCTIONAL"
+    NON_FUNCTIONAL = "NON_FUNCTIONAL"  # 性能、可靠性、安全、可访问性等
+    CONSTRAINT = "CONSTRAINT"  # 部署环境、运行限制、外部系统依赖
+
+
+class FactKind(StrEnum):
+    """访谈信息分类（规范 §5.2：区分已确认事实、用户偏好、推断和待确认事项）。"""
+
+    CONFIRMED_FACT = "CONFIRMED_FACT"  # 用户明确确认的事实
+    PREFERENCE = "PREFERENCE"  # 用户偏好（可变，非硬性规则）
+    INFERENCE = "INFERENCE"  # 系统推断（未经用户确认不得当事实）
+    OPEN = "OPEN"  # 待确认事项
+
+
 class ProjectStatus(StrEnum):
     """项目级状态（由子任务与阶段状态汇总，§9.2：不得由总控单方面宣布完成）。"""
 
