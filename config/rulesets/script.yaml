@@ -1,0 +1,13 @@
+# 一次性/内部脚本项目规则集（实施计划 P3-2）
+# 选取理由：脚本从简——免除命名（STD-001）与资源释放（STD-006）的一般改进项；
+# 安全红线（STD-002/STD-004/STD-005）、反伪造（STD-009）与依赖可追踪（STD-010）一律不免。
+schema_version: 1
+project_type: script
+description: 一次性/内部脚本：最小规则集；安全红线与反伪造规则不豁免，免除一般性改进项。
+select:
+  - scope: code
+  - scope: process
+  - scope: dependencies
+exclude:
+  - id: STD-001
+  - id: STD-006

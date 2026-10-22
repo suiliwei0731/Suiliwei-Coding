@@ -1,0 +1,12 @@
+# 服务端项目规则集（实施计划 P3-2）
+# 选取理由：服务面向网络与共享数据库，核心规则库全量适用（含 STD-011/STD-012 数据库强约束）。
+schema_version: 1
+project_type: service
+description: 服务端项目：核心规则库全量适用；涉及数据库的任务强制触发参数化查询与版本化迁移审查。
+select:
+  - scope: code
+  - scope: architecture
+  - scope: process
+  - scope: dependencies
+  - scope: database
+  - scope: docs

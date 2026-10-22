@@ -24,6 +24,7 @@ def test_registry_loads_all_schemas(registry: SchemaRegistry) -> None:
         "requirement",
         "review",
         "rule",
+        "ruleset",
         "task",
         "test-report",
     )
@@ -109,6 +110,15 @@ VALID_RULE = {
 }
 
 
+VALID_RULESET = {
+    "schema_version": 1,
+    "project_type": "cli",
+    "description": "命令行工具规则集",
+    "select": [{"scope": "code"}, {"id": "STD-011"}],
+    "exclude": [{"id": "STD-001"}],
+}
+
+
 @pytest.mark.parametrize(
     ("name", "payload"),
     [
@@ -120,6 +130,8 @@ VALID_RULE = {
         ("rule", VALID_RULE),
         ("rule", {**VALID_RULE, "check": {"type": "manual", "method": "AI/人工审查项"}}),
         ("rule", {**VALID_RULE, "waiver": {"allowed": False}}),
+        ("ruleset", VALID_RULESET),
+        ("ruleset", {k: v for k, v in VALID_RULESET.items() if k in ("project_type", "select")}),
     ],
 )
 def test_valid_payloads_pass(registry: SchemaRegistry, name: str, payload: dict) -> None:
@@ -150,6 +162,12 @@ def test_valid_payloads_pass(registry: SchemaRegistry, name: str, payload: dict)
         ),
         ("rule", {**VALID_RULE, "waiver": {"allowed": True}}),  # 可豁免但缺角色/有效期
         ("rule", {**VALID_RULE, "rule_version": 0}),  # 规则版本须 >= 1
+        # 项目规则集协议反例（§7.1、P3-2）
+        ("ruleset", {**VALID_RULESET, "select": []}),  # select 至少一条
+        ("ruleset", {**VALID_RULESET, "select": [{"id": "STD-001", "scope": "code"}]}),  # 二选一
+        ("ruleset", {**VALID_RULESET, "select": [{"scope": "infra"}]}),  # scope 非法枚举
+        ("ruleset", {**VALID_RULESET, "project_type": "CLI"}),  # 项目类型须小写
+        ("ruleset", {**VALID_RULESET, "exclude": [{}]}),  # exclude 缺 id
     ],
 )
 def test_invalid_payloads_rejected(registry: SchemaRegistry, name: str, payload: dict) -> None:

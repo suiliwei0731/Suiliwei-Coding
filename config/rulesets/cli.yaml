@@ -1,0 +1,11 @@
+# 命令行工具项目规则集（实施计划 P3-2）
+# 选取理由：CLI 无自有数据库，database 范围规则不触发；其余核心规则全量适用。
+schema_version: 1
+project_type: cli
+description: 命令行工具：代码/架构/流程/依赖/文档全量治理，不含 database 范围（无自有数据库）。
+select:
+  - scope: code
+  - scope: architecture
+  - scope: process
+  - scope: dependencies
+  - scope: docs

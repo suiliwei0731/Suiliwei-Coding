@@ -1,0 +1,14 @@
+# 桌面应用项目规则集（实施计划 P3-2）
+# 选取理由：桌面应用常用本地嵌入式存储，参数化查询（STD-011，BLOCKER）仍强制；
+# STD-012 面向共享/生产库的版本化迁移不套用——本地库结构随应用版本发布，
+# 升级脚本作为应用代码按 code 范围规则治理。
+schema_version: 1
+project_type: desktop
+description: 桌面应用：全量代码/架构/流程/依赖/文档治理；本地存储强制参数化查询（STD-011），不套用生产库迁移规则（STD-012）。
+select:
+  - scope: code
+  - scope: architecture
+  - scope: process
+  - scope: dependencies
+  - scope: docs
+  - id: STD-011

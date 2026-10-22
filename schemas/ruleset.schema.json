@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-dev-platform/schemas/ruleset.schema.json",
+  "title": "项目规则集协议（ESEE 项目类型模板）",
+  "description": "依据规范 §7.1（项目可在核心规则库上按适用范围选取/增补规则）与实施计划 P3-2：config/rulesets/<project_type>.yaml 声明项目类型模板，select 按规则 id 或 scope 从平台核心规则库选取，exclude 按 id 剔除；未知 id、空匹配 scope、文件内外 project_type 不一致均由加载器拒绝。",
+  "type": "object",
+  "required": ["project_type", "select"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "project_type": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "项目类型标识，须与文件名 <project_type>.yaml 一致"
+    },
+    "description": { "type": "string", "description": "模板适用说明与选取理由" },
+    "select": {
+      "type": "array",
+      "minItems": 1,
+      "description": "从核心规则库选取规则：按 id 精选或按 scope 整组选取",
+      "items": {
+        "type": "object",
+        "oneOf": [
+          {
+            "required": ["id"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^[A-Z][A-Z0-9]*(-[A-Z0-9]+)*$" }
+            },
+            "additionalProperties": false
+          },
+          {
+            "required": ["scope"],
+            "properties": {
+              "scope": {
+                "enum": [
+                  "code",
+                  "architecture",
+                  "process",
+                  "dependencies",
+                  "database",
+                  "api",
+                  "docs"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "exclude": {
+      "type": "array",
+      "description": "按 id 剔除已选规则（须为库中已存在的规则 id）",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[A-Z][A-Z0-9]*(-[A-Z0-9]+)*$" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
