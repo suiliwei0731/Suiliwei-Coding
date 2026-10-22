@@ -1,6 +1,6 @@
-# 首批通用工程规则（从规范 §7.2–§7.3 拆出）
-# 依据：实施计划 P0-4；完整规则 Schema（正反例/豁免/审计字段）在 P3-1 定稿，本文件为初版条目
-# check.type: auto（可执行检查命令/工具）| manual（显式标记"人工/AI 审查项"，不得伪装成机器强制）
+# 通用工程规则库（规范 §7.2 完整结构，P3-1 定稿）
+# 每条约七要素：标识/说明（要求+原因）/正反例/检查方法/严重度（§16.3）/豁免策略/规则版本。
+# check.type: auto（机器可执行，必须带 kind）| manual（人工/AI 审查项，显式标记，不得伪装成机器强制）
 schema_version: 1
 
 rules:
@@ -8,70 +8,154 @@ rules:
     name: 命名表达业务含义，职责单一
     scope: code
     severity: MINOR
-    check: { type: auto, method: "ruff lint（命名与复杂度规则）＋ AI 审查复核" }
+    description: 标识符表达业务含义而非实现巧合；每个函数/类/模块只承担一个职责。
+    rationale: 可读性与可维护性直接决定后续 AI/人工修改的错误率。
+    examples:
+      good: ["def calculate_refund(order: Order) -> Money: ..."]
+      bad: ["def do_it(x): ...", "class Manager: 同时处理认证/订单/报表"]
+    check: { type: auto, kind: static_analysis, method: "ruff lint（命名与复杂度规则）＋ AI 审查复核" }
+    waiver: { allowed: true, approver_roles: [架构师], max_validity_days: 30 }
+    rule_version: 1
 
   - id: STD-002
     name: 外部输入必须验证（结构、类型、范围、边界）
     scope: code
     severity: CRITICAL
+    description: 所有跨越系统边界的数据（用户输入、文件、网络、环境变量）先验证再使用。
+    rationale: 未验证输入是注入、崩溃与数据损坏的首要来源（§17：不可信输入处理）。
+    examples:
+      good: ["jsonschema 校验协议载荷后才构造实体"]
+      bad: ["直接把 request.json 当内部对象使用"]
     check: { type: manual, method: "AI/人工审查项；辅助：测试覆盖异常路径" }
+    waiver: { allowed: true, approver_roles: [安全审查, 用户], max_validity_days: 30 }
+    rule_version: 1
 
   - id: STD-003
     name: 结构化错误处理，不吞异常、不用空捕获掩盖失败
     scope: code
     severity: MAJOR
-    check: { type: auto, method: "ruff（E722/B 规则族）" }
+    description: 异常按类型处理并携带上下文；禁止 except 后静默 pass。
+    rationale: 吞异常让失败不可见，破坏"状态只由证据驱动"的红线。
+    examples:
+      good: ["except yaml.YAMLError as exc: raise RuleError(...) from exc"]
+      bad: ["except Exception: pass"]
+    check: { type: auto, kind: static_analysis, method: "ruff（E722/B 规则族）" }
+    waiver: { allowed: true, approver_roles: [架构师], max_validity_days: 30 }
+    rule_version: 1
 
   - id: STD-004
     name: 配置、密钥、环境差异不得硬编码
     scope: code
     severity: CRITICAL
+    description: 配置走 config/ 与环境变量；密钥用环境变量或系统凭据存储，不入库不入日志。
+    rationale: 硬编码密钥泄露即安全事故；环境差异硬编码使交付不可复现（§17）。
+    examples:
+      good: ["api_key = os.environ['MODEL_API_KEY']"]
+      bad: ["api_key = 'sk-...' 写进源码"]
     check: { type: manual, method: "AI/人工审查项；Phase 4 起补静态扫描（policies.yaml secrets 节）" }
+    waiver: { allowed: false }
+    rule_version: 1
 
   - id: STD-005
     name: 日志可定位问题但不记录敏感信息（密钥/个人数据）
     scope: code
     severity: CRITICAL
+    description: 日志含关联 ID 与错误上下文；密钥、令牌、个人数据必须先脱敏。
+    rationale: 日志是最常见的信息泄露通道（§17：审计日志必须脱敏）。
+    examples:
+      good: ["core/audit/redact.py 脱敏后落 audit.jsonl"]
+      bad: ["log.info(f'header={headers}') 打印含 Authorization 的字典"]
     check: { type: manual, method: "AI/人工审查项＋P1-5 审计脱敏过滤器兜底" }
+    waiver: { allowed: false }
+    rule_version: 1
 
   - id: STD-006
     name: 资源（连接/文件/锁）正确释放
     scope: code
     severity: MAJOR
-    check: { type: auto, method: "ruff（SIM/RET 族）＋ AI 审查复核" }
+    description: 文件/连接/锁使用上下文管理器或等价机制，异常路径也能释放。
+    rationale: 资源泄漏在长会话编排中累积为句柄耗尽与死锁。
+    examples:
+      good: ["with path.open(encoding='utf-8') as fh: ..."]
+      bad: ["fh = open(path); ...（无 finally 关闭）"]
+    check: { type: auto, kind: static_analysis, method: "ruff（SIM/RET 族）＋ AI 审查复核" }
+    waiver: { allowed: true, approver_roles: [架构师], max_validity_days: 30 }
+    rule_version: 1
 
   - id: STD-007
     name: 禁止循环依赖与隐式全局状态
     scope: architecture
     severity: MAJOR
-    check: { type: auto, method: "自定义验证器（P1-3 随 DAG 模块实现）" }
+    description: 模块依赖单向无环；共享状态显式注入，不藏进模块级可变全局量。
+    rationale: 循环依赖与隐式状态让变更影响不可预测，破坏任务边界（§8 阶段 4）。
+    examples:
+      good: ["core/orchestrator/dag.py 建图时检测循环并抛 CycleError"]
+      bad: ["模块 A import B，B 又 import A"]
+    check: { type: auto, kind: custom, method: "自定义验证器（P1-3 随 DAG 模块实现）" }
+    waiver: { allowed: true, approver_roles: [架构师], max_validity_days: 30 }
+    rule_version: 1
 
   - id: STD-008
     name: 公共模块有使用说明、接口约定和示例；改动同步更新测试与文档
-    scope: code
+    scope: docs
     severity: MINOR
+    description: 公共模块 docstring 说明用途/参数/异常；行为变更必须同步测试与文档。
+    rationale: 契约不明使协作角色各自按假设实现（§8 阶段 5 要避免的情形）。
+    examples:
+      good: ["core/planning/plan.py 模块 docstring 列明门禁语义与条款出处"]
+      bad: ["改了校验逻辑但测试与文档仍是旧行为"]
     check: { type: manual, method: "AI/人工审查项" }
+    waiver: { allowed: true, approver_roles: [架构师], max_validity_days: 30 }
+    rule_version: 1
 
   - id: STD-009
     name: 不得删除断言、跳过关键测试或伪造结果；不得未经授权修改无关代码
     scope: process
     severity: BLOCKER
-    check: { type: auto, method: "diff 审查（对照 allowed_paths 与测试文件变更）＋ CI 强制" }
+    description: 禁止删断言/skip 关键测试/伪造通过；变更范围以任务 allowed_paths 为准。
+    rationale: 伪造通过直接击穿平台全部质量红线（§7.3、§16.3 BLOCKER）。
+    examples:
+      good: ["测试失败进入缺陷流程，修复后回归"]
+      bad: ["把 failing 用例加 pytest.mark.skip 让套件变绿"]
+    check: { type: auto, kind: custom, method: "diff 审查（对照 allowed_paths 与测试文件变更）＋ CI 强制" }
+    waiver: { allowed: false }
+    rule_version: 1
 
   - id: STD-010
     name: 依赖来自可信来源、版本可追踪、项目可重复构建
     scope: dependencies
     severity: MAJOR
-    check: { type: auto, method: "依赖锁定文件存在性校验；Phase 4 起接入 pip-audit 依赖审计" }
+    description: 依赖有锁定文件与最低版本约束；引入新依赖需说明来源与许可证。
+    rationale: 不可追踪依赖使构建不可复现，且是供应链攻击入口（§7.3）。
+    examples:
+      good: ["pyproject.toml dependencies 带 >= 下界，dev 依赖分离"]
+      bad: ["文档写'先 pip install 一堆包'而无锁定文件"]
+    check: { type: auto, kind: custom, method: "依赖锁定文件存在性校验；Phase 4 起接入 pip-audit 依赖审计" }
+    waiver: { allowed: true, approver_roles: [架构师, 用户], max_validity_days: 30 }
+    rule_version: 1
 
   - id: STD-011
     name: 数据库访问参数化查询，防注入
     scope: database
     severity: BLOCKER
+    description: 任何 SQL 拼接禁止直接插入外部数据，一律参数化。
+    rationale: SQL 注入是 OWASP 长期头号风险，属阻断交付级缺陷。
+    examples:
+      good: ["cursor.execute('SELECT * FROM t WHERE id = ?', (rid,))"]
+      bad: ["f'SELECT * FROM t WHERE id = {rid}'"]
     check: { type: manual, method: "AI/人工审查项（涉及数据库的任务强制触发）" }
+    waiver: { allowed: false }
+    rule_version: 1
 
   - id: STD-012
     name: 数据库结构变更加版本化迁移，禁止手工改生产结构
     scope: database
     severity: CRITICAL
+    description: 结构变更以版本化迁移脚本提交，含回滚方案；生产变更必须授权。
+    rationale: 无迁移记录的变更不可回滚、不可审计（§7.3 数据库标准）。
+    examples:
+      good: ["migrations/0003_add_index.sql 与回滚脚本同提交"]
+      bad: ["直接在生产库 ALTER TABLE，仓库无记录"]
     check: { type: manual, method: "AI/人工审查项＋迁移脚本存在性校验" }
+    waiver: { allowed: true, approver_roles: [用户], max_validity_days: 14 }
+    rule_version: 1

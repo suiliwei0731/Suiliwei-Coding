@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-dev-platform/schemas/rule.schema.json",
+  "title": "工程规则协议（ESEE 规则条目）",
+  "description": "依据规范 §7.2：唯一 ID/名称/适用范围、规则说明（要求什么+为什么）、正例与反例、自动检查方法、严重程度（§16.3 五级）、豁免机制（理由/范围/审批角色/有效期的策略面）、审计字段（规则版本）。无法自动检查的规则必须 check.type=manual（人工/AI 审查项），不得伪装成机器强制。",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "scope",
+    "description",
+    "rationale",
+    "examples",
+    "check",
+    "severity",
+    "waiver",
+    "rule_version"
+  ],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[A-Z][A-Z0-9]*(-[A-Z0-9]+)*$" },
+    "name": { "type": "string", "minLength": 1 },
+    "scope": {
+      "description": "适用范围",
+      "enum": ["code", "architecture", "process", "dependencies", "database", "api", "docs"]
+    },
+    "description": { "type": "string", "minLength": 1, "description": "要求什么" },
+    "rationale": { "type": "string", "minLength": 1, "description": "为什么" },
+    "examples": {
+      "type": "object",
+      "required": ["good", "bad"],
+      "properties": {
+        "good": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "bad": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      },
+      "additionalProperties": false
+    },
+    "check": {
+      "type": "object",
+      "required": ["type", "method"],
+      "properties": {
+        "type": {
+          "enum": ["auto", "manual"],
+          "description": "auto=可机器执行；manual=人工/AI 审查项（显式标记）"
+        },
+        "method": { "type": "string", "minLength": 1 },
+        "kind": {
+          "enum": ["format", "static_analysis", "type_check", "test", "custom"],
+          "description": "自动检查类别（§7.2.4），type=auto 时必填，manual 时禁止"
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "auto" } } },
+          "then": { "required": ["kind"] }
+        },
+        {
+          "if": { "properties": { "type": { "const": "manual" } } },
+          "then": { "not": { "required": ["kind"] } }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "severity": { "enum": ["BLOCKER", "CRITICAL", "MAJOR", "MINOR", "INFO"] },
+    "waiver": {
+      "type": "object",
+      "required": ["allowed"],
+      "properties": {
+        "allowed": { "type": "boolean" },
+        "approver_roles": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "允许批准豁免的角色（§7.4：只有明确授权的角色能批准例外）"
+        },
+        "max_validity_days": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "豁免有效期上限（天）"
+        }
+      },
+      "if": { "properties": { "allowed": { "const": true } } },
+      "then": { "required": ["approver_roles", "max_validity_days"] },
+      "additionalProperties": false
+    },
+    "rule_version": { "type": "integer", "minimum": 1, "description": "规则版本（审计字段）" }
+  },
+  "additionalProperties": false
+}

@@ -23,6 +23,7 @@ def test_registry_loads_all_schemas(registry: SchemaRegistry) -> None:
         "defect",
         "requirement",
         "review",
+        "rule",
         "task",
         "test-report",
     )
@@ -94,6 +95,19 @@ VALID_ARTIFACT = {
     "size_bytes": 2048,
 }
 
+VALID_RULE = {
+    "id": "STD-001",
+    "name": "命名表达业务含义",
+    "scope": "code",
+    "description": "标识符表达业务含义",
+    "rationale": "可读性决定修改错误率",
+    "examples": {"good": ["calculate_refund()"], "bad": ["do_it()"]},
+    "check": {"type": "auto", "kind": "static_analysis", "method": "ruff lint"},
+    "severity": "MINOR",
+    "waiver": {"allowed": True, "approver_roles": ["架构师"], "max_validity_days": 30},
+    "rule_version": 1,
+}
+
 
 @pytest.mark.parametrize(
     ("name", "payload"),
@@ -103,6 +117,9 @@ VALID_ARTIFACT = {
         ("test-report", VALID_TEST_REPORT),
         ("defect", VALID_DEFECT),
         ("artifact", VALID_ARTIFACT),
+        ("rule", VALID_RULE),
+        ("rule", {**VALID_RULE, "check": {"type": "manual", "method": "AI/人工审查项"}}),
+        ("rule", {**VALID_RULE, "waiver": {"allowed": False}}),
     ],
 )
 def test_valid_payloads_pass(registry: SchemaRegistry, name: str, payload: dict) -> None:
@@ -123,6 +140,16 @@ def test_valid_payloads_pass(registry: SchemaRegistry, name: str, payload: dict)
         ("defect", {**VALID_DEFECT, "severity": "HIGH"}),  # 严重度必须为 5 级量表
         ("artifact", {**VALID_ARTIFACT, "sha256": "xyz"}),  # 校验信息非法
         ("artifact", {**VALID_ARTIFACT, "size_bytes": -1}),
+        # 规则协议反例（§7.2）
+        ("rule", {k: v for k, v in VALID_RULE.items() if k != "rationale"}),  # 缺"为什么"
+        ("rule", {**VALID_RULE, "severity": "HIGH"}),  # 严重度必须为 5 级量表
+        ("rule", {**VALID_RULE, "check": {"type": "auto", "method": "ruff"}}),  # auto 缺 kind
+        (  # manual 携带 kind = 伪装机器强制
+            "rule",
+            {**VALID_RULE, "check": {"type": "manual", "method": "审查", "kind": "test"}},
+        ),
+        ("rule", {**VALID_RULE, "waiver": {"allowed": True}}),  # 可豁免但缺角色/有效期
+        ("rule", {**VALID_RULE, "rule_version": 0}),  # 规则版本须 >= 1
     ],
 )
 def test_invalid_payloads_rejected(registry: SchemaRegistry, name: str, payload: dict) -> None:
