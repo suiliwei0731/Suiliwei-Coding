@@ -118,8 +118,12 @@ class EndToEndPipeline:
 
     def _resolve_model(
         self, model: _ModelLike | None, profile_name: str | None
-    ) -> tuple[_ModelLike, str, str | None]:
-        """返回（适配器, 模式, 未验证原因）。"""
+    ) -> tuple[_ModelLike | None, str, str | None]:
+        """返回（适配器, 模式, 未验证原因）。
+
+        模拟模式下适配器为 ``None``：由 :meth:`_model_for_run` 按本次项目
+        动态生成脚本，避免硬编码别的项目 ID/名称。
+        """
         if model is not None:
             return model, "injected", None
 
@@ -129,7 +133,7 @@ class EndToEndPipeline:
             profile = ModelProfile.from_config(profile_name)
         except ModelError as exc:
             return (
-                self._default_model(),
+                None,
                 "simulated",
                 f"模型 profile 不可用：{exc}；本次模型输出为模拟结果，标注 UNVERIFIED",
             )
@@ -138,7 +142,7 @@ class EndToEndPipeline:
         if not profile.enabled:
             if not env_enabled:
                 return (
-                    self._default_model(),
+                    None,
                     "simulated",
                     "模型 profile 未启用（config/models.yaml enabled=false，"
                     "且未设置 AI_DEV_PLATFORM_MODEL_ENABLED）；"
@@ -151,7 +155,7 @@ class EndToEndPipeline:
         missing = self._missing_env(profile.base_url_env, profile.api_key_env, profile.model_env)
         if missing:
             return (
-                self._default_model(),
+                None,
                 "simulated",
                 f"真实模型不可用：缺少环境变量 {', '.join(missing)}；"
                 "本次模型输出为模拟结果，标注 UNVERIFIED",
@@ -160,7 +164,7 @@ class EndToEndPipeline:
             adapter = OpenAICompatibleAdapter(profile, audit=self._audit)
         except ModelError as exc:
             return (
-                self._default_model(),
+                None,
                 "simulated",
                 f"真实模型不可用：{exc}；本次模型输出为模拟结果，标注 UNVERIFIED",
             )
@@ -181,41 +185,42 @@ class EndToEndPipeline:
     # ---- 默认模型 ----
 
     @staticmethod
-    def _default_model() -> Any:
-        """默认 SimulatedAdapter：返回合法的需求/任务 schema JSON。
+    def _build_simulated(project_id: str, source: Path) -> Any:
+        """模拟适配器：输出与当前项目一致的需求/任务 JSON（不跨项目串味）。
 
-        每步返回最小必填字段（符合 schema_version:1 的协议）；
-        真实模型不可用时调用方可注入，此处不作伪造。
+        仅在真实模型不可用时启用，调用方须把 ``model_mode=simulated``
+        与未验证原因一并记录，禁止把模拟输出当成真实模型结论。
         """
         from adapters.models import SimulatedAdapter
 
+        name, description = EndToEndPipeline._project_idea(source)
         steps = [
+            # 第 1 次调用（SPEC）：需求拆解
             json.dumps(
                 {
                     "schema_version": 1,
-                    "project_id": "PRJ-PIPELINE-DEMO",
-                    "title": "端到端流水线演示项目",
-                    "description": "基于 Python 语言适配器的端到端贯通验证",
+                    "project_id": project_id,
+                    "title": name,
+                    "description": description or "端到端流水线验证项目",
                     "language": "python",
-                }
-            ),
-            json.dumps(
-                {
-                    "schema_version": 1,
                     "requirements": [
-                        {"req_id": "REQ-001", "title": "提供可运行的 CLI 入口"},
-                        {"req_id": "REQ-002", "title": "单元测试覆盖核心逻辑"},
-                        {"req_id": "REQ-003", "title": "构建产物可生成"},
+                        {"req_id": "REQ-001", "title": f"{name}：提供可运行的入口"},
+                        {"req_id": "REQ-002", "title": f"{name}：单元测试覆盖核心逻辑"},
+                        {"req_id": "REQ-003", "title": f"{name}：构建产物可生成"},
                     ],
-                }
+                },
+                ensure_ascii=False,
             ),
+            # 第 2 次调用（CODE）：就绪任务与实现计划
             json.dumps(
                 {
                     "schema_version": 1,
+                    "project_id": project_id,
+                    "title": f"{name}：就绪任务实现计划",
                     "tasks": [
                         {
                             "task_id": "TASK-PIPE-1",
-                            "project_id": "PRJ-PIPELINE-DEMO",
+                            "project_id": project_id,
                             "title": "工程初始化",
                             "owner_role": "engineer",
                             "status": "READY",
@@ -223,17 +228,26 @@ class EndToEndPipeline:
                         },
                         {
                             "task_id": "TASK-PIPE-2",
-                            "project_id": "PRJ-PIPELINE-DEMO",
+                            "project_id": project_id,
                             "title": "实现并测试",
                             "owner_role": "engineer",
                             "status": "READY",
-                            "allowed_paths": ["cli_validator/", "tests/", "pyproject.toml"],
+                            "allowed_paths": ["**"],
                         },
                     ],
-                }
+                },
+                ensure_ascii=False,
             ),
         ]
         return SimulatedAdapter(script=cast(list[Any], steps))
+
+    def _model_for_run(self, project_id: str, source: Path) -> _ModelLike:
+        """每次运行取模型：模拟模式按项目重建脚本（避免上次运行耗尽脚本步数）。"""
+        if self._model_mode == "simulated":
+            return self._build_simulated(project_id, source)
+        if self._model is None:  # 理论上不会发生，防御性明确报错
+            raise RuntimeError("模型适配器缺失")
+        return self._model
 
     # ---- 执行入口 ----
 
@@ -253,6 +267,8 @@ class EndToEndPipeline:
             model_mode=self._model_mode,
             model_unverified_reason=self._model_reason,
         )
+        # 本次运行使用的模型：真实/注入复用同一实例；模拟模式按项目重建脚本
+        model = self._model_for_run(project_id, source_path)
         self._checkpoint.save(
             f"{project_id}-start",
             {"phase": PipelinePhase.INIT.value, "source": str(source_path)},
@@ -262,7 +278,7 @@ class EndToEndPipeline:
         result.phases.append(self._phase(PipelinePhase.INIT, source_path, project_id=project_id))
 
         # ---- SPEC（知识检索 → prompt → 模型调用）----
-        spec_entry = self._run_spec(result, project_id, source_path)
+        spec_entry = self._run_spec(result, model, project_id, source_path)
         result.phases.append(spec_entry)
         self._phase(PipelinePhase.SPEC, source_path, project_id=project_id)
 
@@ -287,7 +303,7 @@ class EndToEndPipeline:
         )
         graph = TaskGraph([t1, t2])
         ready = list(graph.ready_tasks())
-        code_entry = self._run_code(result, project_id, source_path, len(ready))
+        code_entry = self._run_code(result, model, project_id, source_path, len(ready))
         code_entry["graph_tasks"] = 2
         code_entry["ready_count"] = len(ready)
         result.phases.append(code_entry)
@@ -340,11 +356,14 @@ class EndToEndPipeline:
 
     # ---- 模型调用阶段 ----
 
-    def _run_spec(self, result: PipelineResult, project_id: str, source: Path) -> dict[str, Any]:
+    def _run_spec(
+        self, result: PipelineResult, model: _ModelLike, project_id: str, source: Path
+    ) -> dict[str, Any]:
         """SPEC：读项目上下文 → 检索知识 → 组装 prompt → 调用模型。"""
         name, description = self._project_idea(source)
         entry = self._invoke_model(
             result,
+            model,
             role="product-architect",
             goal="把项目想法拆解为可验证的需求与任务清单",
             task_title=f"为项目「{name}」产出需求与任务拆解",
@@ -356,12 +375,18 @@ class EndToEndPipeline:
         return entry
 
     def _run_code(
-        self, result: PipelineResult, project_id: str, source: Path, ready_count: int
+        self,
+        result: PipelineResult,
+        model: _ModelLike,
+        project_id: str,
+        source: Path,
+        ready_count: int,
     ) -> dict[str, Any]:
         """CODE：为就绪任务产出实现计划（本阶段不写源码文件）。"""
         name, _ = self._project_idea(source)
         entry = self._invoke_model(
             result,
+            model,
             role="engineer",
             goal="为就绪任务给出实现步骤、验收自查项与验证命令",
             task_title=f"为项目「{name}」的 {ready_count} 个就绪任务制定实现计划",
@@ -376,6 +401,7 @@ class EndToEndPipeline:
     def _invoke_model(
         self,
         result: PipelineResult,
+        model: _ModelLike,
         *,
         role: str,
         goal: str,
@@ -406,7 +432,7 @@ class EndToEndPipeline:
             "truncated": bundle.truncated,
         }
         try:
-            completion = self._model.complete(
+            completion = model.complete(
                 CompletionRequest(role=role, prompt=bundle.text, task_id=task_id)
             )
         except ModelError as exc:

@@ -23,6 +23,8 @@ runtime/artifacts/*
 runtime/checkpoints/*
 # 任务级工作树（P4-3）为运行态，不入库
 runtime/worktrees/
+# 模板项目在五链执行时产生的运行态（junit 等），不入库
+templates/python/*/runtime/
 !runtime/state/.gitkeep
 !runtime/logs/.gitkeep
 !runtime/artifacts/.gitkeep

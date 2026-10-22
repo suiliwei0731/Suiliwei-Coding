@@ -219,6 +219,25 @@ def test_env_enable_without_credentials_falls_back_honestly(
     assert result.summary()["model_unverified"] is True
 
 
+def test_simulated_output_is_project_aware(
+    store_audit, knowledge: KnowledgeIndex, cli_copy: Path, tmp_path: Path
+) -> None:
+    """模拟 fallback 必须按当前项目生成，不得出现其他项目的硬编码 ID/名称。"""
+    pipeline = _pipeline(store_audit, knowledge, tmp_path)
+    result = pipeline.run("PRJ-SCOPE", cli_copy)
+
+    assert result.model_mode == "simulated"
+    spec = next(p for p in result.phases if p.get("phase") == "spec")
+    code = next(p for p in result.phases if p.get("phase") == "code")
+    assert spec["status"] == "OK"
+    assert code["status"] == "OK"
+    # 项目名取自 pyproject.toml（cli-validator），且不含历史硬编码项目
+    for entry in (spec, code):
+        assert "cli-validator" in entry["excerpt"]
+        assert "PRJ-PIPELINE-DEMO" not in entry["excerpt"]
+    assert "PRJ-SCOPE" in code["excerpt"]
+
+
 def test_code_stage_records_no_source_writes(
     store_audit, knowledge: KnowledgeIndex, cli_copy: Path, tmp_path: Path
 ) -> None:

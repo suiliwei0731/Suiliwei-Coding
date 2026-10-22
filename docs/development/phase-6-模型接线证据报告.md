@@ -12,13 +12,14 @@
 | `core/prompt/builder.py` | `PromptBuilder` / `RoleBrief` / `PromptBundle`：按任务检索知识条目，渲染 system + user 两段 prompt；引用携带 `id/来源/分层/可信等级/版本/得分`；默认排除 DEPRECATED；超预算截断并标记 `truncated` |
 | `core/orchestrator/pipeline.py` | SPEC/CODE 两阶段由"直接返回硬编码脚本"改为"检索知识 → 组装 prompt → 调用模型"；新增 `model_mode`（injected/real/simulated）、`model_unverified_reason`、`model_calls`、`citations` 字段进入 `PipelineResult` 与 `summary()` |
 | 模型解析 | 显式注入优先；否则读 `config/models.yaml`；`enabled=false` 且未设 `AI_DEV_PLATFORM_MODEL_ENABLED=1` 时回退模拟适配器并标注 UNVERIFIED；启用但缺 `BASE_URL/API_KEY/MODEL` 环境变量时同样明确回退，不伪造 |
-| 测试 | `tests/unit/test_prompt_builder.py`（12 项）、`tests/unit/test_pipeline_model_wiring.py`（6 项） |
+| 模拟回退项目感知 | 回退脚本不再硬编码 `PRJ-PIPELINE-DEMO`：按本次 `project_id` + `source_path` 的 `pyproject.toml` 动态生成需求/任务 JSON，每次运行重建，避免跨项目串味与脚本耗尽 |
+| 测试 | `tests/unit/test_prompt_builder.py`（12 项）、`tests/unit/test_pipeline_model_wiring.py`（7 项） |
 
 ## 2. 执行过的命令与结果（仓库根，全部 0）
 
-- `python -m pytest` → **480 passed**
+- `python -m pytest` → **481 passed**
 - `python -m ruff check .` → All checks passed
-- `python -m ruff format --check .` → 121 files already formatted
+- `python -m ruff format --check .` → 122 files already formatted
 - `python -m mypy` → no issues found in 63 source files
 - `python scripts/validate/check_baseline.py` → 基线校验 10/10 通过
 
@@ -38,6 +39,9 @@
   `model_mode=simulated` + 非空 `model_unverified_reason`，`summary().model_unverified=True`。
 - **不越权写源码**：`test_code_stage_records_no_source_writes` —— CODE 阶段 `source_writes=0`，
   如实记录本轮不产生源码改动。
+- **模拟输出不跨项目串味**：`test_simulated_output_is_project_aware` —— 回退模式下
+  SPEC/CODE 输出含当前项目名（`cli-validator`）与本次 `project_id`，且不含历史硬编码的
+  `PRJ-PIPELINE-DEMO`。
 
 ## 4. 用户使用方式（真实模型）
 
